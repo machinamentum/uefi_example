@@ -54,10 +54,12 @@ int main(int argc, char *argv[]) {
     int apply_gnu_efi_patch = 0;
 
     int easy_mac_setup = HAS_ARG("easy-mac-setup");
+    int easy_linux_setup = HAS_ARG("easy-linux-setup");
 
     int get_llvm_mac = HAS_ARG("get-llvm-mac") | easy_mac_setup;
-    int get_gnu_efi = HAS_ARG("get-gnu-efi") | easy_mac_setup;
-    int get_ovmf_prebuilt = HAS_ARG("get-ovmf-prebuilt") | easy_mac_setup;
+    int get_llvm_linux = HAS_ARG("get-llvm-linux") | easy_linux_setup;
+    int get_gnu_efi = HAS_ARG("get-gnu-efi") | easy_mac_setup | easy_linux_setup;
+    int get_ovmf_prebuilt = HAS_ARG("get-ovmf-prebuilt") | easy_mac_setup | easy_linux_setup;
 
 
     // Optional: use josh_parse_arguments to handle common option switches (such as --verbose to show executed commands)
@@ -67,6 +69,10 @@ int main(int argc, char *argv[]) {
     if (get_llvm_mac) {
         JB_LOG("Fetching LLVM toolchain\n");
         fetch_and_extract_llvm("https://github.com/llvm/llvm-project/releases/download/llvmorg-19.1.1/LLVM-19.1.1-macOS-ARM64.tar.xz");
+    }
+
+    if (get_llvm_linux) {
+        fetch_and_extract_llvm("https://github.com/llvm/llvm-project/releases/download/llvmorg-19.1.1/LLVM-19.1.1-Linux-X64.tar.xz");
     }
 
     if (get_gnu_efi && !jb_file_exists("gnu-efi")) {
