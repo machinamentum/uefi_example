@@ -79,6 +79,11 @@ int main(int argc, char *argv[]) {
         JB_LOG("Fetching gnu-efi\n");
         JB_RUN(git clone, "https://github.com/rhboot/gnu-efi.git");
 
+        // Only apply patch if you are not going to use parts of the gnu-efi library and only
+        // intend to use the UEFI API wrapper.
+        // The rest of the library provides helper functions for things like pretty printing
+        // and memory management. Once you exit boot services, however, I believe these things
+        // will not work anyways.
         if (apply_gnu_efi_patch) {
             JB_LOG("Applying contrib/gnu-efi-remove-lib-deps.patch\n");
             char *cwd = jb_getcwd();
