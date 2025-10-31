@@ -5,6 +5,23 @@
 
 #include <unistd.h>
 
+void fetch_and_extract_ovmf(const char *url) {
+    JB_LOG("Fetching OVMF\n");
+    char *cwd = jb_getcwd();
+
+    JB_RUN(mkdir -p run);
+    chdir("run");
+    JB_RUN(curl -L -o OVMF_License.txt, "https://raw.githubusercontent.com/tianocore/edk2/refs/heads/master/OvmfPkg/License.txt");
+
+    JB_RUN(curl -L -O, url);
+    const char *filename = jb_filename(url); // maybe not technically a filepath, but this function just looks at the string and finds the last /
+    JB_RUN(tar -xf, filename);
+    JB_RUN(cp ./usr/share/edk2.git/ovmf-x64/OVMF_CODE-pure-efi.fd ./bios.bin);
+
+    chdir(cwd);
+    free(cwd);
+}
+
 void fetch_and_extract_llvm(const char *url) {
     char *cwd = jb_getcwd();
 
@@ -12,7 +29,7 @@ void fetch_and_extract_llvm(const char *url) {
     chdir("toolchains");
     JB_RUN(curl -L -O, url);
 
-    char *filename = jb_filename(url); // maybe not technically a filepath, but this function just looks at the string and finds the last /
+    const char *filename = jb_filename(url); // maybe not technically a filepath, but this function just looks at the string and finds the last /
     JB_RUN(tar --strip-components=1 -xf, filename);
 
     chdir(cwd);
@@ -40,6 +57,7 @@ int main(int argc, char *argv[]) {
 
     int get_llvm_mac = HAS_ARG("get-llvm-mac") | easy_mac_setup;
     int get_gnu_efi = HAS_ARG("get-gnu-efi") | easy_mac_setup;
+    int get_ovmf_prebuilt = HAS_ARG("get-ovmf-prebuilt") | easy_mac_setup;
 
 
     // Optional: use josh_parse_arguments to handle common option switches (such as --verbose to show executed commands)
@@ -67,7 +85,11 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (get_llvm_mac | get_gnu_efi | easy_mac_setup)
+    if (get_ovmf_prebuilt) {
+        fetch_and_extract_ovmf("https://github.com/machinamentum/uefi_example/releases/download/0.0.1/edk2.git-ovmf-x64-0-20220719.209.gf0064ac3af.EOL.no.nore.updates.noarch.rpm");
+    }
+
+    if (get_llvm_mac | get_gnu_efi | get_ovmf_prebuilt | easy_mac_setup)
         return 0;
 
     JBToolchain *llvm = jb_find_llvm_toolchain(JB_ENUM(X86_64), JB_ENUM(UNKNOWN_VENDOR), JB_ENUM(MSVC));
@@ -120,7 +142,7 @@ int main(int argc, char *argv[]) {
             "-Wl,-entry:efi_main", "-Wl,-subsystem:efi_application", "-fuse-ld=lld");
         jb_build_exe(&josh);
 
-        if (!jb_file_exists("run")) {
+        if (!jb_file_exists("run/drive/EFI/BOOT")) {
             JB_RUN(mkdir -p, "run/drive/EFI/BOOT");
         }
 
