@@ -4,18 +4,18 @@ Originally based on the gist found at https://gist.github.com/machinamentum/62d9
 
 This time, with fancy build scripts written in plain C.
 
-# First Time Setup - Mac Users
+## First Time Setup - Mac Users
 
 Run `./easy-mac-setup.sh` to fetch OVMF, gnu-efi, and LLVM toolchain.
 
-# First Time Setup - Linux Users
+## First Time Setup - Linux Users
 
 Run `./easy-linux-setup.sh` to fetch OVMF, gnu-efi, and LLVM toolchain.
 
-# Build
+## Build
 
 Run `./build.sh`
 
-# Run (Qemu)
+## Run (Qemu)
 
 Install QEMU by means of choice, then run `./run.sh`. Expects qemu-system-x86_64 in system path.
