@@ -1,0 +1,137 @@
+#ifndef JOSH_BUILD_H
+#define JOSH_BUILD_IMPL
+#include "josh_build.h"
+#endif
+
+#include <unistd.h>
+
+void fetch_and_extract_llvm(const char *url) {
+    char *cwd = jb_getcwd();
+
+    JB_RUN(mkdir -p toolchains);
+    chdir("toolchains");
+    JB_RUN(curl -L -O, url);
+
+    char *filename = jb_filename(url); // maybe not technically a filepath, but this function just looks at the string and finds the last /
+    JB_RUN(tar --strip-components=1 -xf, filename);
+
+    chdir(cwd);
+    free(cwd);
+
+}
+
+int has_arg(int argc, char *argv[], char *arg) {
+    for (int i = 1; i < argc; ++i) {
+        if (strcmp(argv[i], arg) == 0)
+            return 1;
+    }
+
+    return 0;
+}
+
+#define HAS_ARG(arg) has_arg(argc, argv, arg)
+
+int main(int argc, char *argv[]) {
+
+    _jb_verbose_show_commands = 1;
+    int apply_gnu_efi_patch = 0;
+
+    int easy_mac_setup = HAS_ARG("easy-mac-setup");
+
+    int get_llvm_mac = HAS_ARG("get-llvm-mac") | easy_mac_setup;
+    int get_gnu_efi = HAS_ARG("get-gnu-efi") | easy_mac_setup;
+
+
+    // Optional: use josh_parse_arguments to handle common option switches (such as --verbose to show executed commands)
+    argv = josh_parse_arguments(argc, argv);
+    argc = jb_string_array_count(argv);
+
+    if (get_llvm_mac) {
+        JB_LOG("Fetching LLVM toolchain\n");
+        fetch_and_extract_llvm("https://github.com/llvm/llvm-project/releases/download/llvmorg-19.1.1/LLVM-19.1.1-macOS-ARM64.tar.xz");
+    }
+
+    if (get_gnu_efi && !jb_file_exists("gnu-efi")) {
+        JB_LOG("Fetching gnu-efi\n");
+        JB_RUN(git clone, "https://github.com/rhboot/gnu-efi.git");
+
+        if (apply_gnu_efi_patch) {
+            JB_LOG("Applying contrib/gnu-efi-remove-lib-deps.patch\n");
+            char *cwd = jb_getcwd();
+
+            chdir("gnu-efi");
+            JB_RUN(git apply, "../contrib/gnu-efi-remove-lib-deps.patch");
+
+            chdir(cwd);
+            free(cwd);
+        }
+    }
+
+    if (get_llvm_mac | get_gnu_efi | easy_mac_setup)
+        return 0;
+
+    JBToolchain *llvm = jb_find_llvm_toolchain(JB_ENUM(X86_64), JB_ENUM(UNKNOWN_VENDOR), JB_ENUM(MSVC));
+    if (!llvm) {
+        printf("Could not locate LLVM toolchain in <project>/toolchains/\n");
+        printf("Ensure clang is located at <project>/toolchains/bin/clang\n");
+
+        printf("\nIf you are compiling on an M-series mac, execute the following to download a copy of the LLVM toolchain:\n");
+        printf("./build/josh_builder easy-mac-setup\n");
+        return -1;
+    }
+    llvm->cc = llvm->clang; // JB will set cc to clang-cl, but doesn't support dependency tracking and compiling with clang-cl yet
+    llvm->triple.name = "x86_64-unknown-windows";
+
+    {
+        JBExecutable josh = {"josh"};
+        josh.toolchain = llvm;
+        josh.sources = JB_STRING_ARRAY(
+            "src/main.c",
+            "src/segments.s",
+            "gnu-efi/lib/data.c",
+
+            // data.c is the only required file if contrib/gnu-efi-remove-lib-deps.patch was applied.
+            // Otherwise, we need to compile and link these files as well.
+            "gnu-efi/lib/print.c",
+            "gnu-efi/lib/guid.c",
+            "gnu-efi/lib/str.c",
+            "gnu-efi/lib/misc.c",
+            "gnu-efi/lib/error.c",
+            "gnu-efi/lib/dpath.c",
+            "gnu-efi/lib/event.c",
+            "gnu-efi/lib/console.c",
+            "gnu-efi/lib/runtime/efirtlib.c",
+            "gnu-efi/lib/runtime/rtstr.c",
+            "gnu-efi/lib/runtime/rtdata.c",
+            "gnu-efi/lib/x86_64/math.c"
+            );
+        josh.build_folder = "build";
+        josh.cflags = JB_STRING_ARRAY(
+            "-ffreestanding",
+            // "-fpic",
+            "-fno-stack-protector",
+            "-fno-stack-check",
+            "-fshort-wchar",
+            "-masm=intel",
+            "-mno-red-zone",
+            // "-maccumulate-outgoing-args",
+            "-Ignu-efi/inc");
+        josh.ldflags = JB_STRING_ARRAY("-nostdlib", "-shared", "-Bsymbolic",
+            "-Wl,-entry:efi_main", "-Wl,-subsystem:efi_application", "-fuse-ld=lld");
+        jb_build_exe(&josh);
+
+        if (!jb_file_exists("run")) {
+            JB_RUN(mkdir -p, "run/drive/EFI/BOOT");
+        }
+
+        JB_RUN(cp build/josh run/drive/EFI/BOOT/BOOTX64.EFI);
+    }
+
+    if (argc > 1 && strcmp(argv[1], "run") == 0) {
+        chdir("run");
+        JB_RUN(qemu-system-x86_64 -pflash bios.bin -hda fat:rw:drive -net none -monitor stdio);
+    }
+
+    return 0;
+}
+

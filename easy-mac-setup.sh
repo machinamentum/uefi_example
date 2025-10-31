@@ -1,0 +1,1 @@
+mkdir -p build && gcc -g -o build/josh_builder -x c build.josh && ./build/josh_builder easy-mac-setup

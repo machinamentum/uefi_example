@@ -1,0 +1,19 @@
+diff --git a/lib/data.c b/lib/data.c
+index ec6ae54..60b7cb6 100644
+--- a/lib/data.c
++++ b/lib/data.c
+@@ -53,10 +53,10 @@ EFI_MEMORY_TYPE PoolAllocationType = EfiBootServicesData;
+ //
+ 
+ EFI_UNICODE_COLLATION_INTERFACE   LibStubUnicodeInterface = {
+-    LibStubStriCmp,
+-    LibStubMetaiMatch,
+-    LibStubStrLwrUpr,
+-    LibStubStrLwrUpr,
++    NULL,
++    NULL,
++    NULL,
++    NULL,
+     NULL,   // FatToStr
+     NULL,   // StrToFat
+     NULL    // SupportedLanguages
