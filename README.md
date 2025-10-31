@@ -2,7 +2,7 @@
 
 Originally based on the gist found at https://gist.github.com/machinamentum/62d9f438ac427c88c2dbe6dafaf1e80b
 
-This time, with fancy build scripts written in plain C.
+This time, with fancy build scripts written in plain C to quickly setup a working build and testing environment.
 
 ## First Time Setup - Mac Users
 
